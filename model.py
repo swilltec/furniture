@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Optional, NamedTuple, NewType
+from typing import Optional, NamedTuple, NewType,\
+    List
 from collections import namedtuple
 from datetime import date
 
@@ -37,6 +38,21 @@ class Batch:
         self._purchased_quantity = qty
         self._allocations = set()
 
+    def __eq__(self, other):
+        if not isinstance(other, Batch):
+            return False
+        return other.reference == self.reference
+
+    def __hash__(self):
+        return hash(self.reference)
+
+    def __gt__(self, other):
+        if self.eta is None:
+            return False
+        if other.eta is None:
+            return True
+        return self.eta > other.eta
+
     def allocate(self, line: OrderLine):
         if self.can_allocate(line):
             self._allocations.add(line)
@@ -54,7 +70,7 @@ class Batch:
         return self._purchased_quantity - self.allocated_quantity
 
     def can_allocate(self, line: OrderLine) -> bool:
-           return self.sku == line.sku and self.available_quantity >= line.qty
+        return self.sku == line.sku and self.available_quantity >= line.qty
 
     def can_allocate(self, line: OrderLine) -> bool:
         return self.sku == line.sku and self.available_quantity >= line.qty
@@ -65,3 +81,16 @@ class Person:
         self.name = name
 
 
+class OutOfStock(Exception):
+    pass
+
+
+def allocate(line: OrderLine, batches: List[Batch]) -> str:
+    try:
+        batch = next(
+            b for b in sorted(batches) if b.can_allocate(line)
+        )
+        batch.allocate(line)
+        return batch.reference
+    except StopIteration:
+        raise OutOfStock(f'Out of stock for sku {line.sku}')

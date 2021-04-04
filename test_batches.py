@@ -1,6 +1,7 @@
 from datetime import date
+from typing import List
 from model import Batch, OrderLine, \
-    Money, Name, Line, Person
+    Money, Name, Line, Person, allocate
 
 
 def make_batch_and_line(sku, batch_qty, line_qty):
@@ -47,14 +48,9 @@ def test_allocation_is_idempotent():
     assert batch.available_quantity == 18
 
 
-def test_equality():
-    assert Money('gbp', 10) == Money('gbp', 10)
-    assert Name('Harry', 'Percival') != Name('Bob', 'Gregory')
-    assert Line('RED-CHAIR', 5) == Line('RED-CHAIR', 5)
 
-
-def test_barry_is_harry():
-    harry = Person(Name("Harry", "Percival"))
-    barry = harry
-    barry.name = Name("Barry", "Percival")
-    assert harry is barry and barry is harry
+def test_deallocate():
+    batch, line = make_batch_and_line("EXPENSIVE-FOOTSTOOL", 20, 2)
+    batch.allocate(line)
+    batch.deallocate(line)
+    assert batch.available_quantity == 20
