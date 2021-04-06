@@ -1,28 +1,23 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Optional, NamedTuple, NewType,\
-    List
-from collections import namedtuple
 from datetime import date
+from typing import Optional, List, Set
 
 
-Quantity = NewType("Quantity", int)
-Sku = NewType("Sku", str)
-Reference = NewType("Reference", str)
-Line = namedtuple('Line', ['sku', 'qty'])
+class OutOfStock(Exception):
+    pass
 
 
-@dataclass(frozen=True)
-class Name:
-    first_name: str
-    surname: str
+def allocate(line: OrderLine, batches: List[Batch]) -> str:
+    try:
+        batch = next(b for b in sorted(batches) if b.can_allocate(line))
+        batch.allocate(line)
+        return batch.reference
+    except StopIteration:
+        raise OutOfStock(f"Out of stock for sku {line.sku}")
 
 
-class Money(NamedTuple):
-    currency: str
-    value: int
-
-
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)
 class OrderLine:
     orderid: str
     sku: str
@@ -30,13 +25,15 @@ class OrderLine:
 
 
 class Batch:
-    def __init__(self, ref: Reference, sku: Sku,
-                 qty: Quantity, eta: Optional[date]):
+    def __init__(self, ref: str, sku: str, qty: int, eta: Optional[date]):
         self.reference = ref
         self.sku = sku
         self.eta = eta
         self._purchased_quantity = qty
-        self._allocations = set()
+        self._allocations = set()  # type: Set[OrderLine]
+
+    def __repr__(self):
+        return f"<Batch {self.reference}>"
 
     def __eq__(self, other):
         if not isinstance(other, Batch):
@@ -71,26 +68,3 @@ class Batch:
 
     def can_allocate(self, line: OrderLine) -> bool:
         return self.sku == line.sku and self.available_quantity >= line.qty
-
-    def can_allocate(self, line: OrderLine) -> bool:
-        return self.sku == line.sku and self.available_quantity >= line.qty
-
-
-class Person:
-    def __init__(self, name: Name):
-        self.name = name
-
-
-class OutOfStock(Exception):
-    pass
-
-
-def allocate(line: OrderLine, batches: List[Batch]) -> str:
-    try:
-        batch = next(
-            b for b in sorted(batches) if b.can_allocate(line)
-        )
-        batch.allocate(line)
-        return batch.reference
-    except StopIteration:
-        raise OutOfStock(f'Out of stock for sku {line.sku}')
